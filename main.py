@@ -28,7 +28,7 @@ class CompletionRequest(BaseModel):
   top_k: int = Field(default=50, description="The number of highest probability vocabulary tokens to keep for top-k-filtering.", required=False)
   top_p: float = Field(default=0.9, description="If set to float < 1, only the smallest set of most probable tokens with probabilities that add up to top_p or higher are kept for generation.", required=False)
   num_beams: int = Field(default=1, description="Number of beams for beam search. 1 means no beam search.", required=False)
-  max_new_tokens: int = Field(default=250, description="The maximum numbers of tokens to generate, ignoring the number of tokens in the prompt.", required=False)
+  max_new_tokens: int = Field(default=1000, description="The maximum numbers of tokens to generate, ignoring the number of tokens in the prompt.", required=False)
   stream: bool = Field(default=False, description="The response is an Event stream. If num_beans > 1 this option is set to False.", required=False)
 
 app = FastAPI()
@@ -46,7 +46,6 @@ async def completion(res: Response, model_options: CompletionRequest = Body()):
 
   if stream:
     streamer = generate_streaming_completion(generate_options)
-
     return StreamingResponse(streamer)
 
   return generate_completion(generate_options)
@@ -60,13 +59,13 @@ async def completion(res: Response, tokenize_options: TokenizeRequest = Body()):
 
   options = {
     "tokenizer": tokenizer,
-    "tokenize_options": tokenize_options
+    "tokenizer_options": tokenize_options
   }
 
   input_ids = tokenize(options)
 
   return {
-    "n_tokens": len(input_ids)
+    "n_tokens": input_ids['input_ids'].shape[1]
   }
 
 

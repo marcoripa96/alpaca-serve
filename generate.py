@@ -16,7 +16,7 @@ def stream_completion(options: dict):
       "instruction": instruction
     }
 
-    res = requests.post('http://127.0.0.1:8000/completion', json={**resolved_options, "stream": True}, stream=True)
+    res = requests.post('http://127.0.0.1:7860/completion', json={**resolved_options, "stream": True}, stream=True)
 
     for chunk in res.iter_lines():
         if chunk:
