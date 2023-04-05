@@ -2,6 +2,17 @@ import argparse
 import requests
 import json
 import sys
+import os
+from dotenv import load_dotenv
+
+load_dotenv()  
+
+class BearerAuth(requests.auth.AuthBase):
+    def __init__(self, token):
+        self.token = token
+    def __call__(self, r):
+        r.headers["Authorization"] = "Bearer " + self.token
+        return r
 
 def stream_completion(options: dict):
   instruction_opt = options['instruction']
@@ -16,7 +27,7 @@ def stream_completion(options: dict):
       "instruction": instruction
     }
 
-    res = requests.post('http://127.0.0.1:7860/completion', json={**resolved_options, "stream": True}, stream=True)
+    res = requests.post('http://127.0.0.1:7860/completion', json={**resolved_options, "stream": True}, stream=True, auth=BearerAuth(os.getenv('API_KEY')))
 
     for chunk in res.iter_lines():
         if chunk:

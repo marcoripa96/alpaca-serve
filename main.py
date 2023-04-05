@@ -1,10 +1,40 @@
-from fastapi import FastAPI, Body, Response
+from fastapi import FastAPI, Body, Response, Request, HTTPException, Depends
+from typing_extensions import Annotated
 from fastapi.responses import StreamingResponse
 from peft import PeftModel
 from transformers import LlamaForCausalLM, LlamaTokenizer, GenerationConfig
 from utils import generate_streaming_completion, generate_completion, tokenize
 from pydantic import BaseModel, Field
 import torch
+from pydantic import BaseSettings
+from starlette.middleware.base import BaseHTTPMiddleware
+
+class Settings(BaseSettings):
+    api_key: str
+
+    class Config:
+        env_file = ".env"
+
+class AuthMiddleware(BaseHTTPMiddleware):
+    def __init__(
+            self,
+            app
+    ):
+        super().__init__(app)
+        self.settings = Settings()
+
+    async def dispatch(self, request: Request, call_next):
+      authorization = request.headers.get('Authorization')
+      if not authorization:
+        raise HTTPException(status_code=401, detail="Authorization token is required!")
+      
+      api_token = authorization.split(' ')[1]
+
+      if api_token != self.settings.api_key:
+        raise HTTPException(status_code=401, detail="Invalid api token!")
+      
+      response = await call_next(request)
+      return response
 
 
 tokenizer = LlamaTokenizer.from_pretrained("decapoda-research/llama-7b-hf")
@@ -21,6 +51,11 @@ model = PeftModel.from_pretrained(
   torch_dtype=torch.float16
 )
 
+
+app = FastAPI()
+app.add_middleware(AuthMiddleware)
+
+
 class CompletionRequest(BaseModel):
   instruction: str = Field(description="Describes the task the model should perform.", required=True)
   input: str = Field(default=None, description="Optional context or input for the task.", required=False)
@@ -30,8 +65,6 @@ class CompletionRequest(BaseModel):
   num_beams: int = Field(default=1, description="Number of beams for beam search. 1 means no beam search.", required=False)
   max_new_tokens: int = Field(default=1000, description="The maximum numbers of tokens to generate, ignoring the number of tokens in the prompt.", required=False)
   stream: bool = Field(default=False, description="The response is an Event stream. If num_beans > 1 this option is set to False.", required=False)
-
-app = FastAPI()
 
 @app.post("/completion")
 async def completion(res: Response, model_options: CompletionRequest = Body()):
