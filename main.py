@@ -1,18 +1,25 @@
 from fastapi import FastAPI, Body, Response
 from fastapi.responses import StreamingResponse
 from peft import PeftModel
-from transformers import LLaMATokenizer, LLaMAForCausalLM, GenerationConfig
-from utils import generate_streaming_completion, generate_completion
+from transformers import LlamaForCausalLM, LlamaTokenizer, GenerationConfig
+from utils import generate_streaming_completion, generate_completion, tokenize
 from pydantic import BaseModel, Field
+import torch
 
 
-tokenizer = LLaMATokenizer.from_pretrained("decapoda-research/llama-7b-hf")
-model = LLaMAForCausalLM.from_pretrained(
+tokenizer = LlamaTokenizer.from_pretrained("decapoda-research/llama-7b-hf")
+model = LlamaForCausalLM.from_pretrained(
     "decapoda-research/llama-7b-hf",
     load_in_8bit=True,
+    torch_dtype=torch.float16,
     device_map="auto",
 )
-model = PeftModel.from_pretrained(model, "tloen/alpaca-lora-7b", device_map={'': 0})
+model = PeftModel.from_pretrained(
+  model, 
+  "tloen/alpaca-lora-7b", 
+  device_map={'': 0}, 
+  torch_dtype=torch.float16
+)
 
 class CompletionRequest(BaseModel):
   instruction: str = Field(description="Describes the task the model should perform.", required=True)
@@ -38,8 +45,29 @@ async def completion(res: Response, model_options: CompletionRequest = Body()):
   stream = model_options.stream and model_options.num_beams == 1
 
   if stream:
-    return StreamingResponse(generate_streaming_completion(generate_options))
+    streamer = generate_streaming_completion(generate_options)
+
+    return StreamingResponse(streamer)
 
   return generate_completion(generate_options)
+
+
+class TokenizeRequest(BaseModel):
+  text: str = Field(description="The text to tokenize", required=True)
+
+@app.post("/count-tokens")
+async def completion(res: Response, tokenize_options: TokenizeRequest = Body()):
+
+  options = {
+    "tokenizer": tokenizer,
+    "tokenize_options": tokenize_options
+  }
+
+  input_ids = tokenize(options)
+
+  return {
+    "n_tokens": len(input_ids)
+  }
+
 
 
