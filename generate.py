@@ -27,7 +27,7 @@ def stream_completion(options: dict):
       "instruction": instruction
     }
 
-    res = requests.post('http://127.0.0.1:7860/completion', json={**resolved_options, "stream": True}, stream=True, auth=BearerAuth(os.getenv('API_KEY')))
+    res = requests.post('https://vm.chronos.disco.unimib.it/llm/completion', json={**resolved_options, "stream": True}, stream=True, auth=BearerAuth(os.getenv('API_KEY')))
 
     for chunk in res.iter_lines():
         if chunk:

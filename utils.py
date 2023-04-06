@@ -64,9 +64,10 @@ def generate_streaming_completion(options):
 
   Thread(target=generate,args=()).start()
 
-  for new_text in streamer:
-      if new_text:
-        yield json.dumps({ "text": new_text }) + '\n'
+  for index, new_text in enumerate(streamer):
+      if index > 0:
+        if new_text:
+          yield json.dumps({ "text": new_text }) + '\n'
         
 
 
